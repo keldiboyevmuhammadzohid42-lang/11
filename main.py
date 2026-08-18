@@ -104,8 +104,6 @@ TEXTS = {
         'personal_add': "📬 Shaxsiy kino qo'shish",
         'admin_add': "🎬 Admin orqali kino qo'shish",
         'lang_change': "🌐 Tilni o'zgartirish",
-        'oddiy_video': "🎬 Oddiy video qo'shish",
-        'vip_video': "💎 VIP video qo'shish",
         'reklama': "📢 Reklama"
     },
     'ru': {
@@ -120,8 +118,6 @@ TEXTS = {
         'personal_add': "📬 Добавить фильм (Личный)",
         'admin_add': "🎬 Добавить через админа",
         'lang_change': "🌐 Сменить язык",
-        'oddiy_video': "🎬 Добавить обычное видео",
-        'vip_video': "💎 Добавить VIP видео",
         'reklama': "📢 Реклама"
     },
     'en': {
@@ -136,8 +132,6 @@ TEXTS = {
         'personal_add': "📬 Add Film (Personal)",
         'admin_add': "🎬 Add via Admin",
         'lang_change': "🌐 Change Language",
-        'oddiy_video': "🎬 Add normal video",
-        'vip_video': "💎 Add VIP video",
         'reklama': "📢 Advertisement"
     }
 }
@@ -153,9 +147,9 @@ def show_main_menu(chat_id, user_id):
     markup.row(get_text(user_id, 'admin_add'), get_text(user_id, 'vip_menu'))
     markup.row(get_text(user_id, 'reklama'), get_text(user_id, 'lang_change'))
     
-    # Admin uchun doimiy ravishda quyidagi tugmalar chiqadi
     if user_id == ADMIN_ID:
-        markup.row("🎬 Oddiy video qo'shish", "💎 VIP video qo'shish")
+        markup.row("📢 Kanallarni sozlash", "📊 Statistika")
+        markup.row("🎬 Kino yuklash", "🤖 Bot holati")
         
     bot.send_message(chat_id, get_text(user_id, 'menu'), reply_markup=markup)
 
@@ -200,11 +194,9 @@ def callback_sub(call):
     else:
         bot.answer_callback_query(call.id, "Siz hali hamma kanalga obuna bo'lmadingiz! ❌", show_alert=True)
 
-# --- ADMIN BUYRUQLARI ---
-@bot.message_handler(commands=['stats'])
-def stats_command(message):
-    if message.from_user.id != ADMIN_ID:
-        return
+# --- ADMIN PANEL QOSHIMCHA TUGMALARI ---
+@bot.message_handler(func=lambda message: message.text == "📊 Statistika" and message.from_user.id == ADMIN_ID)
+def admin_stats_panel(message):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('SELECT COUNT(*) FROM users')
@@ -214,9 +206,34 @@ def stats_command(message):
     cursor.execute('SELECT COUNT(*) FROM users WHERE is_vip = 1')
     total_vips = cursor.fetchone()[0]
     conn.close()
-    
     bot.reply_to(message, f"📊 **Bot Statistikasi:**\n\n👥 Jami foydalanuvchilar: {total_users}\n💎 VIP foydalanuvchilar: {total_vips}\n🎬 Jami kinolar: {total_movies}", parse_mode="Markdown")
 
+@bot.message_handler(func=lambda message: message.text == "🤖 Bot holati" and message.from_user.id == ADMIN_ID)
+def admin_bot_status(message):
+    bot.reply_to(message, "🟢 Bot holati: **Aktiv (24/7 ishlayapti)**\n⚡ Server: Render\n🗄 Ma'lumotlar bazasi: SQLite (Ulandi)", parse_mode="Markdown")
+
+@bot.message_handler(func=lambda message: message.text == "📢 Kanallarni sozlash" and message.from_user.id == ADMIN_ID)
+def admin_channels_config(message):
+    ch_list = "\n".join(CHANNELS)
+    bot.reply_to(message, f"📢 **Majburiy obuna kanallari:**\n{ch_list}\n\n(O'zgartirish uchun kodni yangilang)", parse_mode="Markdown")
+
+@bot.message_handler(func=lambda message: message.text == "🎬 Kino yuklash" and message.from_user.id == ADMIN_ID)
+def admin_movie_upload_menu(message):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🎬 Oddiy video qo'shish", callback_data="add_type_0"))
+    markup.add(types.InlineKeyboardButton("💎 VIP video qo'shish", callback_data="add_type_1"))
+    bot.send_message(message.chat.id, "🔽 Quyidagilardan birini tanlang:", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("add_type_"))
+def callback_add_type(call):
+    if call.from_user.id != ADMIN_ID:
+        return
+    v_type = int(call.data.split("_")[2])
+    user_states[call.from_user.id] = {"step": "admin_direct_wait_video", "type": v_type}
+    v_name = "VIP" if v_type == 1 else "Oddiy"
+    bot.edit_message_text(f"📤 {v_name} videoni yuboring:", call.message.chat.id, call.message.message_id)
+
+# --- ADMIN BUYRUQLARI ---
 @bot.message_handler(commands=['ban'])
 def ban_command(message):
     if message.from_user.id != ADMIN_ID:
@@ -393,38 +410,24 @@ def admin_add_movie(message):
 def random_movie(message):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT code, video_id, is_vip FROM movies')
+    # TO'G'RILANDI: Oddiy foydalanuvchiga faqat oddiy kinolardan tasodifiy tanlab beriladi
+    if is_user_vip(message.from_user.id):
+        cursor.execute('SELECT code, video_id, is_vip FROM movies')
+    else:
+        cursor.execute('SELECT code, video_id, is_vip FROM movies WHERE is_vip = 0')
     movies = cursor.fetchall()
     conn.close()
 
     if not movies:
-        bot.send_message(message.chat.id, "❌ Hozircha bazada kinolar yo'q.")
+        bot.send_message(message.chat.id, "❌ Hozircha bazada mos kinolar yo'q.")
     else:
         import random
         code, video_id, is_vip = random.choice(movies)
-        if is_vip == 1 and not is_user_vip(message.from_user.id):
-            markup = types.InlineKeyboardMarkup()
-            markup.add(types.InlineKeyboardButton("💎 Premium Obuna sotib olish", callback_data="btn_vip_menu"))
-            bot.send_message(message.chat.id, "💎 Bu tasodifiy tanlangan kino **VIP** obunachilar uchun mo'ljallangan!", reply_markup=markup, parse_mode="Markdown")
-            return
         bot.send_video(message.chat.id, video_id, caption=f"🎲 Tasodifiy kino (Kodi: `{code}`)", parse_mode="Markdown")
 
 @bot.message_handler(func=lambda message: message.text in [TEXTS['uz']['search'], TEXTS['ru']['search'], TEXTS['en']['search']])
 def search_hint(message):
     bot.send_message(message.chat.id, "🔎 Kino topish uchun kino **kodini** yuboring (masalan: `1`, `120` yoki `122`):", parse_mode="Markdown")
-
-# --- ADMIN VIDEO QO'SHISH TUGMALARI ---
-@bot.message_handler(func=lambda message: message.text == "🎬 Oddiy video qo'shish")
-def admin_oddiy_start(message):
-    if message.from_user.id == ADMIN_ID:
-        user_states[message.from_user.id] = {"step": "admin_direct_wait_video", "type": 0}
-        bot.send_message(message.chat.id, "📤 Oddiy videoni yuboring:")
-
-@bot.message_handler(func=lambda message: message.text == "💎 VIP video qo'shish")
-def admin_vip_start(message):
-    if message.from_user.id == ADMIN_ID:
-        user_states[message.from_user.id] = {"step": "admin_direct_wait_video", "type": 1}
-        bot.send_message(message.chat.id, "📤 VIP videoni yuboring:")
 
 # --- XABARLARNI QAYTA ISHLASH ---
 @bot.message_handler(content_types=['text', 'video', 'photo'])
@@ -474,14 +477,4 @@ def handle_all_inputs(message):
             bot.reply_to(message, "✅ Chekingiz adminga yuborildi! Tez orada tekshirib ulab berishadi.")
             return
         else:
-            bot.reply_to(message, "❌ Iltimos, to'lov chekining rasmini (skrinshot) yuboring!")
-            return
-
-    if state == "recommending_movie":
-        user_states.pop(user_id, None)
-        bot.send_message(ADMIN_ID, f"💡 **Yangi kino tavsiyasi:**\nKimdan: @{message.from_user.username} ({user_id})\nKino: {text}")
-        bot.reply_to(message, "✅ Tavsiyangiz adminga yuborildi!")
-        return
-
-    if state == "personal_add_video" and message.video:
-        user_states[user_id] = {"video": message.video.file_id, "ste
+            bot.reply_to(message, "❌ Iltimos, to'lov chekining rasmi
