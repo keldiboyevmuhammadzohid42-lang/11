@@ -8,15 +8,11 @@ from telebot import types
 TOKEN = "8816940858:AAEwDQ94ues00rcG1RVkNMPumQh7Xxgfowc"
 ADMIN_ID = 8753350906
 
-# Majburiy obuna kanallari ro'yxati (Mafiya ochiq kanali username bilan qo'shildi)
+# Majburiy obuna kanal va guruhlari (Aniq username'lar bilan)
 CHANNELS = [
-    "@mafiakanaluzz",  # Mafiya ochiq kanali
-    -1004393253930,  # Zaifka 1
-    -1003774304125,  # Yangi zaif kanal 1
-    -1003500723640,  # Yangi zaif kanal 2
-    -1003873799163,  # Yangi zaif kanal 3
-    "@max_films01", 
-    "@reklamuchun1"
+    "@max_films01",     # Kino olami kanali
+    "@reklamuchun1",    # Reklama xizmati kanali
+    "@sevshgnrlr"       # Sevishganlar guruhi
 ]
 
 bot = telebot.TeleBot(TOKEN)
@@ -50,7 +46,7 @@ init_db()
 def get_db():
     return sqlite3.connect('bot_database.db', check_same_thread=False)
 
-# --- FLASK SERVER (RENDER) ---
+# --- FLASK SERVER (RENDER 24/7) ---
 app = Flask('')
 @app.route('/')
 def home():
@@ -103,7 +99,7 @@ def is_user_banned(user_id):
 TEXTS = {
     'uz': {
         'menu': "✅ Asosiy menyu:",
-        'sub_text': "✨ Botdan foydalanish uchun quyidagi barcha kanallarga obuna bo'ling:",
+        'sub_text': "✨ Botdan foydalanish uchun quyidagi barcha kanal va guruhlarga obuna bo'ling:",
         'check': "🔄 Tekshirish",
         'vip_menu': "💎 Premium Obuna",
         'search': "🔍 Qidirish",
@@ -151,12 +147,9 @@ def send_welcome(message):
     if not is_user_vip(user_id) and not check_sub(user_id):
         lang = get_user_lang(user_id)
         markup = types.InlineKeyboardMarkup()
-        # Kanal va guruhlarga o'tish tugmalari
-        markup.add(types.InlineKeyboardButton("🔗 Mafiya kanali", url="https://t.me/mafiakanaluzz"))
-        markup.add(types.InlineKeyboardButton("🔗 Zaifka 1", url="https://t.me/+z5zASH4CbaczOTQy"))
-        markup.add(types.InlineKeyboardButton("🔗 Zaifka 2", url="https://t.me/+z5zASH4CbaczOTQy"))
-        markup.add(types.InlineKeyboardButton("🔗 Zaifka 3", url="https://t.me/+z5zASH4CbaczOTQy"))
-        markup.add(types.InlineKeyboardButton("📢 max_films01", url="https://t.me/max_films01"))
+        markup.add(types.InlineKeyboardButton("📢 Kino olami", url="https://t.me/max_films01"))
+        markup.add(types.InlineKeyboardButton("📢 Reklama Xizmati", url="https://t.me/reklamuchun1"))
+        markup.add(types.InlineKeyboardButton("👥 Sevishganlar guruhi", url="https://t.me/sevshgnrlr"))
         markup.add(types.InlineKeyboardButton(TEXTS[lang]['check'], callback_data="check_subscription"))
         markup.add(types.InlineKeyboardButton(TEXTS[lang]['vip_menu'], callback_data="btn_vip_menu"))
         
@@ -176,7 +169,7 @@ def callback_sub(call):
             pass
         show_main_menu(call.message.chat.id, user_id)
     else:
-        bot.answer_callback_query(call.id, "Siz hali hamma kanalga a'zo bo'lmadingiz! ❌", show_alert=True)
+        bot.answer_callback_query(call.id, "Siz hali hamma kanal va guruhlarga a'zo bo'lmadingiz! ❌", show_alert=True)
 
 # --- ADMIN PANEL & QOLGAN FUNKSIYALAR ---
 @bot.message_handler(func=lambda message: message.text == "📊 Statistika" and message.from_user.id == ADMIN_ID)
@@ -198,7 +191,7 @@ def admin_bot_status(message):
 
 @bot.message_handler(func=lambda message: message.text == "📢 Kanallarni sozlash" and message.from_user.id == ADMIN_ID)
 def admin_channels_config(message):
-    bot.reply_to(message, "📢 **Majburiy obuna kanallari muvaffaqiyatli sozlandi.**", parse_mode="Markdown")
+    bot.reply_to(message, "📢 **Majburiy obuna kanal va guruhlari muvaffaqiyatli sozlandi.**", parse_mode="Markdown")
 
 @bot.message_handler(func=lambda message: message.text == "🎬 Kino yuklash" and message.from_user.id == ADMIN_ID)
 def admin_movie_upload_menu(message):
@@ -458,18 +451,17 @@ def admin_vip_control(call):
     data = call.data.split("_")
     action = data[1]
     
+    id_val = int(data[2])
     if action == "yes":
-        user_id = int(data[2])
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('UPDATE users SET is_vip = 1 WHERE user_id = ?', (user_id,))
+        cursor.execute('UPDATE users SET is_vip = 1 WHERE user_id = ?', (id_val,))
         conn.commit()
         conn.close()
-        bot.send_message(user_id, "🎉 Tabriklaymiz! Sizning VIP obunangiz admin tomonidan tasdiqlandi va faollashtirildi! ✅")
+        bot.send_message(id_val, "🎉 Tabriklaymiz! Sizning VIP obunangiz admin tomonidan tasdiqlandi va faollashtirildi! ✅")
         bot.answer_callback_query(call.id, "VIP tasdiqlandi! ✅")
     else:
-        user_id = int(data[2])
-        bot.send_message(user_id, "❌ To'lov chekingiz rad etildi.")
+        bot.send_message(id_val, "❌ To'lov chekingiz rad etildi.")
         bot.answer_callback_query(call.id, "Rad etildi ❌")
     try:
         bot.delete_message(call.message.chat.id, call.message.message_id)
@@ -478,3 +470,4 @@ def admin_vip_control(call):
 
 if __name__ == "__main__":
     bot.infinity_polling()
+    
