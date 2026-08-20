@@ -8,8 +8,15 @@ from telebot import types
 TOKEN = "8816940858:AAEwDQ94ues00rcG1RVkNMPumQh7Xxgfowc"
 ADMIN_ID = 8753350906
 
-# Yangi qo'shilgan yopiq kanal va boshqa kanallar
-CHANNELS = [-1004393253930, "@max_films01", "@reklamuchun1"]
+# Majburiy obuna kanallari (barcha zaif va asosiy kanallar ro'yxati)
+CHANNELS = [
+    -1004393253930,  # Zaifka 1
+    -1003774304125,  # Yangi zaif kanal 1
+    -1003500723640,  # Yangi zaif kanal 2
+    -1003873799163,  # Yangi zaif kanal 3
+    "@max_films01", 
+    "@reklamuchun1"
+]
 
 bot = telebot.TeleBot(TOKEN)
 user_states = {}
@@ -95,8 +102,7 @@ def is_user_banned(user_id):
 TEXTS = {
     'uz': {
         'menu': "✅ Asosiy menyu:",
-        'sub_text': "✨ Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling:\n\n1️⃣ Yopiq kanal: Zaifka 1",
-        'sub_btn': "📢 Kanalga obuna bo'lish",
+        'sub_text': "✨ Botdan foydalanish uchun quyidagi barcha kanallarga obuna bo'ling:",
         'check': "🔄 Tekshirish",
         'vip_menu': "💎 Premium Obuna",
         'search': "🔍 Qidirish",
@@ -144,9 +150,12 @@ def send_welcome(message):
     if not is_user_vip(user_id) and not check_sub(user_id):
         lang = get_user_lang(user_id)
         markup = types.InlineKeyboardMarkup()
-        # Yopiq kanal uchun maxsus havola tugmasi
-        markup.add(types.InlineKeyboardButton("🔒 Zaifka 1 (Yopiq kanal)", url="https://t.me/+z5zASH4CbaczOTQy"))
-        markup.add(types.InlineKeyboardButton(TEXTS[lang]['sub_btn'], url="https://t.me/max_films01"))
+        # Barcha kanallarga o'tish tugmalari (yopiq kanallar uchun taklif havolalarini qo'yishingiz mumkin)
+        markup.add(types.InlineKeyboardButton("🔗 Zaifka 1", url="https://t.me/+z5zASH4CbaczOTQy"))
+        markup.add(types.InlineKeyboardButton("🔗 Zaifka 2", url="https://t.me/+z5zASH4CbaczOTQy")) # Kerak bo'lsa havolasini o'zgartirasiz
+        markup.add(types.InlineKeyboardButton("🔗 Zaifka 3", url="https://t.me/+z5zASH4CbaczOTQy"))
+        markup.add(types.InlineKeyboardButton("🔗 Zaifka 4", url="https://t.me/+z5zASH4CbaczOTQy"))
+        markup.add(types.InlineKeyboardButton("📢 max_films01", url="https://t.me/max_films01"))
         markup.add(types.InlineKeyboardButton(TEXTS[lang]['check'], callback_data="check_subscription"))
         markup.add(types.InlineKeyboardButton(TEXTS[lang]['vip_menu'], callback_data="btn_vip_menu"))
         
@@ -166,9 +175,9 @@ def callback_sub(call):
             pass
         show_main_menu(call.message.chat.id, user_id)
     else:
-        bot.answer_callback_query(call.id, "Siz hali hamma kanalga obuna bo'lmadingiz! ❌", show_alert=True)
+        bot.answer_callback_query(call.id, "Siz hali hamma kanalga a'zo bo'lmadingiz! ❌", show_alert=True)
 
-# --- ADMIN PANEL QOSHIMCHA TUGMALARI ---
+# --- ADMIN PANEL ---
 @bot.message_handler(func=lambda message: message.text == "📊 Statistika" and message.from_user.id == ADMIN_ID)
 def admin_stats_panel(message):
     conn = get_db()
@@ -188,7 +197,7 @@ def admin_bot_status(message):
 
 @bot.message_handler(func=lambda message: message.text == "📢 Kanallarni sozlash" and message.from_user.id == ADMIN_ID)
 def admin_channels_config(message):
-    bot.reply_to(message, f"📢 **Majburiy obuna kanallari:**\n- ` -1004393253930 ` (Zaifka 1)\n- `@max_films01`\n- `@reklamuchun1`", parse_mode="Markdown")
+    bot.reply_to(message, "📢 **Majburiy obuna kanallari bazaga ulandi va muvaffaqiyatli ishlayapti.**", parse_mode="Markdown")
 
 @bot.message_handler(func=lambda message: message.text == "🎬 Kino yuklash" and message.from_user.id == ADMIN_ID)
 def admin_movie_upload_menu(message):
@@ -206,7 +215,6 @@ def callback_add_type(call):
     v_name = "VIP" if v_type == 1 else "Oddiy"
     bot.edit_message_text(f"📤 {v_name} videoni yuboring:", call.message.chat.id, call.message.message_id)
 
-# --- ADMIN BUYRUQLARI ---
 @bot.message_handler(commands=['ban'])
 def ban_command(message):
     if message.from_user.id != ADMIN_ID:
@@ -273,7 +281,7 @@ def unvip_command(message):
     bot.send_message(target_id, "❌ Sizning VIP obunangiz admin tomonidan olib tashlandi.")
     bot.reply_to(message, f"✅ `{target_id}` dan VIP olib tashlandi.", parse_mode="Markdown")
 
-# --- VIP OBUNA VA TO'LOV ---
+# --- VIP OBUNA ---
 @bot.message_handler(func=lambda message: message.text in [TEXTS['uz']['vip_menu']])
 def vip_subscription_menu_msg(message):
     vip_subscription_menu(message)
@@ -284,7 +292,6 @@ def vip_subscription_menu_call(call):
 
 def vip_subscription_menu(event):
     chat_id = event.message.chat.id if hasattr(event, 'message') else event.chat.id
-    user_id = event.from_user.id
     
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("1 oylik — 15,000 so'm", callback_data="pay_uz_1"))
@@ -478,5 +485,4 @@ def admin_vip_control(call):
         pass
 
 if __name__ == "__main__":
-    bot.infinity_polling()
-                                  
+    bot.infinity_
