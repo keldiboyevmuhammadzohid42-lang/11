@@ -7,11 +7,7 @@ import os
 TOKEN = "8816940858:AAEwDQ94ues00rcG1RVkNMPumQh7Xxgfowc"
 ADMIN_ID = 8753350906
 
-# Majburiy obuna kanallari (Bot bu kanallarga admin bo'lishi shart!)
-CHANNELS = [
-    "@max_films01",     
-    "@reklamuchun1",    
-    "@sevshgnrlr"       
+
 ]
 
 bot = telebot.TeleBot(TOKEN)
