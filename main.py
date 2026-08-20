@@ -17,7 +17,7 @@ CHANNELS = [
 bot = telebot.TeleBot(TOKEN)
 user_states = {}
 
-# --- BAZA YO'LI (PythonAnywhere uchun doimiy) ---
+# --- BAZA YO'LI ---
 DB_NAME = 'bot_database.db'
 
 def init_db():
@@ -148,7 +148,7 @@ def admin_stats_panel(message):
 
 @bot.message_handler(func=lambda message: message.text == "🤖 Bot holati" and message.from_user.id == ADMIN_ID)
 def admin_bot_status(message):
-    bot.reply_to(message, "🟢 Bot holati: **Aktiv (24/7 ishlayapti)**\n⚡ Server: PythonAnywhere\n🗄 Ma'lumotlar bazasi: SQLite (`bot_database.db`)", parse_mode="Markdown")
+    bot.reply_to(message, "🟢 Bot holati: **Aktiv (24/7 ishlayapti)**\n⚡ Server: Aktiv\n🗄 Ma'lumotlar bazasi: SQLite (`bot_database.db`)", parse_mode="Markdown")
 
 @bot.message_handler(func=lambda message: message.text == "📢 Kanallarni sozlash" and message.from_user.id == ADMIN_ID)
 def admin_channels_config(message):
@@ -359,7 +359,11 @@ def admin_vip_control(call):
         cursor.execute('UPDATE users SET is_vip = 1 WHERE user_id = ?', (id_val,))
         conn.commit()
         conn.close()
-        bot.send_message(id_val, "🎉 Tabriklaymiz! VIP obunangiz tasdiqlandi va faollashtirildi! ✅")
+        
+        # VIP tasdiqlanganda xabar yuborish va menyu tugmalarini qaytarish
+        bot.send_message(id_val, "🎉 Tabriklaymiz! VIP obunangiz admin tomonidan tasdiqlandi va faollashtirildi! ✅")
+        show_main_menu(id_val, id_val)
+        
         bot.answer_callback_query(call.id, "VIP tasdiqlandi! ✅")
     else:
         bot.send_message(id_val, "❌ To'lov chekingiz rad etildi.")
@@ -371,4 +375,4 @@ def admin_vip_control(call):
 
 if __name__ == "__main__":
     bot.infinity_polling()
-                     
+        
