@@ -2,12 +2,12 @@ import sqlite3
 import telebot
 from telebot import types
 import random
-import os
+from datetime import datetime
 
 TOKEN = "8816940858:AAEwDQ94ues00rcG1RVkNMPumQh7Xxgfowc"
 ADMIN_ID = 8753350906
 
-# Majburiy obuna kanallari (Bot bu kanallarga admin bo'lishi shart!)
+# Majburiy obuna kanallari
 CHANNELS = [
     "@max_films01",     
     "@reklamuchun1",    
@@ -27,6 +27,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
             username TEXT,
+            joined_date TEXT,
             is_vip INTEGER DEFAULT 0,
             is_banned INTEGER DEFAULT 0
         )
@@ -35,7 +36,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS movies (
             code TEXT PRIMARY KEY,
             video_id TEXT,
-            is_vip INTEGER DEFAULT 0
+            is_vip INTEGER DEFAULT 0,
+            downloads INTEGER DEFAULT 0
         )
     ''')
     conn.commit()
@@ -46,7 +48,6 @@ init_db()
 def get_db():
     return sqlite3.connect(DB_NAME, check_same_thread=False)
 
-# --- MAJBURIY OBUNANI TEKSHIRISH ---
 def check_sub(user_id):
     if user_id == ADMIN_ID:
         return True
@@ -86,8 +87,9 @@ def show_main_menu(chat_id, user_id):
     markup.row("📢 Reklama")
     
     if user_id == ADMIN_ID:
-        markup.row("📢 Kanallarni sozlash", "📊 Statistika")
+        markup.row("📊 Statistika", "📢 Xabar yuborish (Reklama)")
         markup.row("🎬 Kino yuklash", "🤖 Bot holati")
+        markup.row("📢 Kanallarni sozlash")
         
     bot.send_message(chat_id, "✅ Asosiy menyu:", reply_markup=markup)
 
@@ -95,10 +97,11 @@ def show_main_menu(chat_id, user_id):
 def send_welcome(message):
     user_id = message.from_user.id
     username = message.from_user.username
+    current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('INSERT OR IGNORE INTO users (user_id, username) VALUES (?, ?)', (user_id, username))
+    cursor.execute('INSERT OR IGNORE INTO users (user_id, username, joined_date) VALUES (?, ?, ?)', (user_id, username, current_date))
     conn.commit()
     conn.close()
 
@@ -130,9 +133,8 @@ def callback_sub(call):
             pass
         show_main_menu(call.message.chat.id, user_id)
     else:
-        bot.answer_callback_query(call.id, "Siz hali hamma kanal va guruhlarga a'zo bo'lmadingiz yoki bot kanallarga admin qilinmagan! ❌", show_alert=True)
+        bot.answer_callback_query(call.id, "Siz hali hamma kanal va guruhlarga a'zo bo'lmadingiz! ❌", show_alert=True)
 
-# --- ADMIN PANEL & STATISTIKA ---
 @bot.message_handler(func=lambda message: message.text == "📊 Statistika" and message.from_user.id == ADMIN_ID)
 def admin_stats_panel(message):
     conn = get_db()
@@ -143,16 +145,33 @@ def admin_stats_panel(message):
     total_movies = cursor.fetchone()[0]
     cursor.execute('SELECT COUNT(*) FROM users WHERE is_vip = 1')
     total_vips = cursor.fetchone()[0]
+    cursor.execute('SELECT SUM(downloads) FROM movies')
+    total_downloads = cursor.fetchone()[0] or 0
     conn.close()
-    bot.reply_to(message, f"📊 **Bot Statistikasi:**\n\n👥 Jami foydalanuvchilar: {total_users}\n💎 VIP foydalanuvchilar: {total_vips}\n🎬 Jami kinolar: {total_movies}", parse_mode="Markdown")
+    
+    stats_text = (
+        f"📊 **Bot Statistikasi:**\n\n"
+        f"👥 Jami foydalanuvchilar: {total_users} ta\n"
+        f"💎 VIP obunachilar: {total_vips} ta\n"
+        f"🎬 Bazadagi jami kinolar: {total_movies} ta\n"
+        f"📥 Jami yuklab olishlar: {total_downloads} marta\n"
+        f"🟢 Bot holati: Barqaror ishlayapti"
+    )
+    bot.reply_to(message, stats_text, parse_mode="Markdown")
 
 @bot.message_handler(func=lambda message: message.text == "🤖 Bot holati" and message.from_user.id == ADMIN_ID)
 def admin_bot_status(message):
-    bot.reply_to(message, "🟢 Bot holati: **Aktiv (24/7 ishlayapti)**\n⚡ Server: Aktiv\n🗄 Ma'lumotlar bazasi: SQLite (`bot_database.db`)", parse_mode="Markdown")
+    bot.reply_to(message, "🟢 Bot holati: **Aktiv (24/7 ishlayapti)**\n⚡ Himoya: Yoqilgan (`protect_content` faol)\n🗄 Ma'lumotlar bazasi: SQLite", parse_mode="Markdown")
 
 @bot.message_handler(func=lambda message: message.text == "📢 Kanallarni sozlash" and message.from_user.id == ADMIN_ID)
 def admin_channels_config(message):
-    bot.reply_to(message, "📢 **Majburiy obuna kanal va guruhlari to'g'ri sozlangan.**\n⚠️ *Eslatma: Bot barcha ko'rsatilgan kanal/guruhlarga ADMIN bo'lishi shart!*", parse_mode="Markdown")
+    channels_str = "\n".join(CHANNELS)
+    bot.reply_to(message, f"📢 **Majburiy obuna kanallari:**\n{channels_str}\n\n⚠️ *Eslatma: Bot barcha kanallarga administrator bo'lishi shart!*", parse_mode="Markdown")
+
+@bot.message_handler(func=lambda message: message.text == "📢 Xabar yuborish (Reklama)" and message.from_user.id == ADMIN_ID)
+def admin_start_broadcast(message):
+    user_states[message.from_user.id] = "waiting_for_broadcast_text"
+    bot.reply_to(message, "📢 Barcha foydalanuvchilarga yubormoqchi bo'lgan xabaringizni (matn, rasm yoki video) yuboring:")
 
 @bot.message_handler(func=lambda message: message.text == "🎬 Kino yuklash" and message.from_user.id == ADMIN_ID)
 def admin_movie_upload_menu(message):
@@ -170,7 +189,6 @@ def callback_add_type(call):
     v_name = "VIP" if v_type == 1 else "Oddiy"
     bot.edit_message_text(f"📤 {v_name} videoni yuboring:", call.message.chat.id, call.message.message_id)
 
-# --- MENYU TUGMALARI ---
 @bot.message_handler(func=lambda message: message.text == "💎 Premium Obuna")
 def vip_subscription_menu_msg(message):
     vip_subscription_menu(message)
@@ -223,17 +241,38 @@ def random_movie(message):
     conn = get_db()
     cursor = conn.cursor()
     if is_user_vip(message.from_user.id):
-        cursor.execute('SELECT code, video_id, is_vip FROM movies')
+        cursor.execute('SELECT code, video_id, is_vip, downloads FROM movies')
     else:
-        cursor.execute('SELECT code, video_id, is_vip FROM movies WHERE is_vip = 0')
+        cursor.execute('SELECT code, video_id, is_vip, downloads FROM movies WHERE is_vip = 0')
     movies = cursor.fetchall()
     conn.close()
 
     if not movies:
         bot.send_message(message.chat.id, "❌ Hozircha bazada kinolar mavjud emas.")
     else:
-        code, video_id, is_vip = random.choice(movies)
-        bot.send_video(message.chat.id, video_id, caption=f"🎲 Tasodifiy kino (Kodi: `{code}`)", parse_mode="Markdown")
+        code, video_id, is_vip, downloads = random.choice(movies)
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE movies SET downloads = downloads + 1 WHERE code = ?', (code,))
+        conn.commit()
+        conn.close()
+        new_downloads = downloads + 1
+
+        caption = (
+            f"🔥 ZAYAFKA KANALLARGA ZAKAZ OLAMAN!\n\n"
+            f"Kanalga odam kerakmi? Unda yoz 👇\n"
+            f"👥 Jivoy, aktiv auditoriya\n"
+            f"⚡ Tez va sifatli ishlaymiz\n"
+            f"💸 Narxlar hamyonbop\n"
+            f"📈 Kanalni tezroq o'stirishga yordam beramiz\n\n"
+            f"1000 ta zayafka — kelishilgan narxda ✅\n"
+            f"Ko'p miqdorga alohida skidka bor 💥\n\n"
+            f"📩 Zakaz uchun lichkaga yozing\n"
+            f"@mhdnvwv\n\n"
+            f"⬇️ Yuklab olingan: {new_downloads} ta"
+        )
+        bot.send_video(message.chat.id, video_id, caption=caption, parse_mode="Markdown", protect_content=True)
 
 @bot.message_handler(func=lambda message: message.text == "🔍 Qidirish")
 def search_hint(message):
@@ -243,8 +282,7 @@ def search_hint(message):
 def reklama_menu(message):
     bot.send_message(message.chat.id, "📢 Reklama xizmatidan foydalanish uchun murojaat qiling: @reklamuchun1")
 
-# --- XABARLARNI QABUL QILISH ---
-@bot.message_handler(content_types=['text', 'video', 'photo'])
+@bot.message_handler(content_types=['text', 'video', 'photo', 'document', 'audio'])
 def handle_all_inputs(message):
     user_id = message.from_user.id
     if is_user_banned(user_id):
@@ -254,6 +292,29 @@ def handle_all_inputs(message):
     text = message.text or message.caption or ""
 
     if user_id == ADMIN_ID:
+        if state == "waiting_for_broadcast_text":
+            user_states.pop(user_id, None)
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute('SELECT user_id FROM users')
+            users = cursor.fetchall()
+            conn.close()
+            
+            success = 0
+            failed = 0
+            bot.reply_to(message, "📢 Xabar tarqatish boshlandi...")
+            start_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            for u in users:
+                try:
+                    bot.copy_message(u[0], message.chat.id, message.message_id)
+                    success += 1
+                except:
+                    failed += 1
+            end_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            bot.send_message(ADMIN_ID, f"✅ Xabar yuborish tugadi.\n\n👤 Jami foydalanuvchilar: {len(users)}\n✅ Muvaffaqiyatli: {success}\n❌ Xato (bloklaganlar): {failed}\n⏱ Boshlanish vaqti: {start_time}\n⏱ Tugash vaqti: {end_time}")
+            return
+
         if message.video and isinstance(state, dict) and state.get("step") == "admin_direct_wait_video":
             user_states[user_id]["video"] = message.video.file_id
             user_states[user_id]["step"] = "admin_direct_wait_code"
@@ -267,7 +328,7 @@ def handle_all_inputs(message):
             
             conn = get_db()
             cursor = conn.cursor()
-            cursor.execute('INSERT OR REPLACE INTO movies (code, video_id, is_vip) VALUES (?, ?, ?)', (code, video_id, v_type))
+            cursor.execute('INSERT OR REPLACE INTO movies (code, video_id, is_vip, downloads) VALUES (?, ?, ?, 0)', (code, video_id, v_type))
             conn.commit()
             conn.close()
             
@@ -311,7 +372,7 @@ def handle_all_inputs(message):
         
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('INSERT OR REPLACE INTO movies (code, video_id, is_vip) VALUES (?, ?, 0)', (code, video_id))
+        cursor.execute('INSERT OR REPLACE INTO movies (code, video_id, is_vip, downloads) VALUES (?, ?, 0, 0)', (code, video_id))
         conn.commit()
         conn.close()
         
@@ -326,25 +387,44 @@ def handle_all_inputs(message):
         user_states.pop(user_id, None)
         return
 
-    # Kino kodi orqali qidirish
     code = text.strip()
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('SELECT video_id, is_vip FROM movies WHERE code = ?', (code,))
+    cursor.execute('SELECT video_id, is_vip, downloads FROM movies WHERE code = ?', (code,))
     movie = cursor.fetchone()
     conn.close()
 
     if movie:
-        video_id, is_vip = movie
+        video_id, is_vip, downloads = movie
         if is_vip == 1 and not is_user_vip(user_id):
             markup = types.InlineKeyboardMarkup()
             markup.add(types.InlineKeyboardButton("💎 Premium Obuna sotib olish", callback_data="btn_vip_menu"))
             bot.send_message(message.chat.id, "💎 Bu kino faqat **VIP foydalanuvchilar** uchun mo'ljallangan!", reply_markup=markup, parse_mode="Markdown")
             return
         
-        bot.send_video(message.chat.id, video_id, caption=f"🎬 Kino! Kodi: `{code}`", parse_mode="Markdown")
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE movies SET downloads = downloads + 1 WHERE code = ?', (code,))
+        conn.commit()
+        conn.close()
+        new_downloads = downloads + 1
+
+        caption = (
+            f"🔥 ZAYAFKA KANALLARGA ZAKAZ OLAMAN!\n\n"
+            f"Kanalga odam kerakmi? Unda yoz 👇\n"
+            f"👥 Jivoy, aktiv auditoriya\n"
+            f"⚡ Tez va sifatli ishlaymiz\n"
+            f"💸 Narxlar hamyonbop\n"
+            f"📈 Kanalni tezroq o'stirishga yordam beramiz\n\n"
+            f"1000 ta zayafka — kelishilgan narxda ✅\n"
+            f"Ko'p miqdorga alohida skidka bor 💥\n\n"
+            f"📩 Zakaz uchun lichkaga yozing\n"
+            f"@mhdnvwv\n\n"
+            f"⬇️ Yuklab olingan: {new_downloads} ta"
+        )
+        bot.send_video(message.chat.id, video_id, caption=caption, parse_mode="Markdown", protect_content=True)
     else:
-        menu_texts = ["🔍 Qidirish", "🎲 Tasodifiy", "💡 Kino tavsiya qilish", "📬 Shaxsiy kino qo'shish", "🎬 Admin orqali kino qo'shish", "💎 Premium Obuna", "📢 Reklama", "📊 Statistika", "🤖 Bot holati", "📢 Kanallarni sozlash", "🎬 Kino yuklash"]
+        menu_texts = ["🔍 Qidirish", "🎲 Tasodifiy", "💡 Kino tavsiya qilish", "📬 Shaxsiy kino qo'shish", "🎬 Admin orqali kino qo'shish", "💎 Premium Obuna", "📢 Reklama", "📊 Statistika", "🤖 Bot holati", "📢 Kanallarni sozlash", "🎬 Kino yuklash", "📢 Xabar yuborish (Reklama)"]
         if code not in menu_texts:
             bot.reply_to(message, f"❌ `{code}` kodi bo'yicha hech qanday kino topilmadi.", parse_mode="Markdown")
 
@@ -360,7 +440,6 @@ def admin_vip_control(call):
         conn.commit()
         conn.close()
         
-        # VIP tasdiqlanganda xabar yuborish va menyu tugmalarini qaytarish
         bot.send_message(id_val, "🎉 Tabriklaymiz! VIP obunangiz admin tomonidan tasdiqlandi va faollashtirildi! ✅")
         show_main_menu(id_val, id_val)
         
@@ -375,4 +454,4 @@ def admin_vip_control(call):
 
 if __name__ == "__main__":
     bot.infinity_polling()
-        
+    
