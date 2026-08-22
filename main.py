@@ -260,16 +260,16 @@ def random_movie(message):
         new_downloads = downloads + 1
 
         caption = (
-            f"🔥 ZAYAFKA KANALLARGA ZAKAZ OLAMAN!\n\n"
-            f"Kanalga odam kerakmi? Unda yoz 👇\n"
-            f"👥 Jivoy, aktiv auditoriya\n"
-            f"⚡ Tez va sifatli ishlaymiz\n"
-            f"💸 Narxlar hamyonbop\n"
-            f"📈 Kanalni tezroq o'stirishga yordam beramiz\n\n"
-            f"1000 ta zayafka — kelishilgan narxda ✅\n"
-            f"Ko'p miqdorga alohida skidka bor 💥\n\n"
-            f"📩 Zakaz uchun lichkaga yozing\n"
-            f"@mhdnvwv\n\n"
+            "🔥 ZAYAFKA KANALLARGA ZAKAZ OLAMAN!\n\n"
+            "Kanalga odam kerakmi? Unda yoz 👇\n"
+            "👥 Jivoy, aktiv auditoriya\n"
+            "⚡ Tez va sifatli ishlaymiz\n"
+            "💸 Narxlar hamyonbop\n"
+            "📈 Kanalni tezroq o'stirishga yordam beramiz\n\n"
+            "1000 ta zayafka — kelishilgan narxda ✅\n"
+            "Ko'p miqdorga alohida skidka bor 💥\n\n"
+            "📩 Zakaz uchun lichkaga yozing\n"
+            "@mhdnvwv\n\n"
             f"⬇️ Yuklab olingan: {new_downloads} ta"
         )
         bot.send_video(message.chat.id, video_id, caption=caption, parse_mode="Markdown", protect_content=True)
@@ -410,16 +410,16 @@ def handle_all_inputs(message):
         new_downloads = downloads + 1
 
         caption = (
-            f"🔥 ZAYAFKA KANALLARGA ZAKAZ OLAMAN!\n\n"
-            f"Kanalga odam kerakmi? Unda yoz 👇\n"
-            f"👥 Jivoy, aktiv auditoriya\n"
-            f"⚡ Tez va sifatli ishlaymiz\n"
-            f"💸 Narxlar hamyonbop\n"
-            f"📈 Kanalni tezroq o'stirishga yordam beramiz\n\n"
-            f"1000 ta zayafka — kelishilgan narxda ✅\n"
-            f"Ko'p miqdorga alohida skidka bor 💥\n\n"
-            f"📩 Zakaz uchun lichkaga yozing\n"
-            f"@mhdnvwv\n\n"
+            "🔥 ZAYAFKA KANALLARGA ZAKAZ OLAMAN!\n\n"
+            "Kanalga odam kerakmi? Unda yoz 👇\n"
+            "👥 Jivoy, aktiv auditoriya\n"
+            "⚡ Tez va sifatli ishlaymiz\n"
+            "💸 Narxlar hamyonbop\n"
+            "📈 Kanalni tezroq o'stirishga yordam beramiz\n\n"
+            "1000 ta zayafka — kelishilgan narxda ✅\n"
+            "Ko'p miqdorga alohida skidka bor 💥\n\n"
+            "📩 Zakaz uchun lichkaga yozing\n"
+            "@mhdnvwv\n\n"
             f"⬇️ Yuklab olingan: {new_downloads} ta"
         )
         bot.send_video(message.chat.id, video_id, caption=caption, parse_mode="Markdown", protect_content=True)
